@@ -1,0 +1,88 @@
+from ursina import *
+from ursina.prefabs.first_person_controller import FirstPersonController
+
+app = Ursina()
+
+# --- Isekai Setup ---
+isekai_message = "You awaken in a strange new world...  A world of magic and adventure!"
+print(isekai_message)
+
+# --- Block Definitions ---
+block_types = {
+    'grass': 'grass',
+    'stone': 'stone',
+    'dirt': 'dirt',
+    'wood': 'wood'
+}
+
+# --- World Generation ---
+world_size = 32  # Size of the world (e.g., 32x32x32 blocks)
+world = {}
+
+def generate_world():
+    for x in range(world_size):
+        for z in range(world_size):
+            y = 0  # Start at ground level
+            world[(x, y, z)] = 'grass'  # Grass at ground level
+            for i in range(1, 5):
+                y -= 1
+                if y < 0:
+                    break
+                world[(x, y, z)] = 'dirt'
+            y -= 1
+            if y < 0:
+                break
+            world[(x, y, z)] = 'stone'
+
+generate_world()
+
+# --- Block Rendering ---
+blocks = {}
+def render_blocks():
+    for (x, y, z), block_type in world.items():
+        if (x, y, z) not in blocks:
+            block = Entity(model='cube', texture=block_types[block_type], position=(x, y, z), collider='box')
+            blocks[(x, y, z)] = block
+
+render_blocks()
+
+# --- Player ---
+player = FirstPersonController()
+player.cursor.visible = False  # Hide the cursor
+
+# --- Block Interaction ---
+def input(key):
+    if key == 'left mouse down':
+        hit_info = raycast(player.world_position, player.forward, distance=5)
+        if hit_info.hit:
+            block_pos = hit_info.entity.position
+            x, y, z = int(block_pos.x), int(block_pos.y), int(block_pos.z)
+            if (x, y, z) in world:
+                destroy_block(x, y, z)
+    elif key == 'right mouse down':
+        hit_info = raycast(player.world_position, player.forward, distance=5)
+        if hit_info.hit:
+            block_pos = hit_info.entity.position
+            x, y, z = int(block_pos.x), int(block_pos.y), int(block_pos.z)
+            place_block(x, y, z, 'grass')  # Example: Place grass
+
+def destroy_block(x, y, z):
+    if (x, y, z) in world:
+        del world[(x, y, z)]
+        if (x, y, z) in blocks:
+            destroy(blocks[(x, y, z)])
+            del blocks[(x, y, z)]
+        #Re-render nearby blocks to fill the gap
+        render_blocks()
+
+def place_block(x, y, z, block_type):
+    if (x, y, z) not in world:
+        world[(x, y, z)] = block_type
+        block = Entity(model='cube', texture=block_types[block_type], position=(x, y, z), collider='box')
+        blocks[(x, y, z)] = block
+
+# --- Update ---
+def update():
+    pass  # Add game logic here (e.g., enemy AI, item collection)
+
+app.run()
